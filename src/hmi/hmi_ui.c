@@ -35,9 +35,7 @@ activate (GtkApplication *app,
   gtk_window_present (GTK_WINDOW (window));
 }
 
-int
-main (int    argc,
-      char **argv)
+int ui_run(int    argc, char **argv)
 {
   GtkApplication *app;
   int status;
