@@ -1,4 +1,8 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "ui.h"
+#include "gpib.h"
+
 // plus tard: #include "gpib_ctrl.h"
 
 int main(int argc, char **argv)

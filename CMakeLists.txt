@@ -9,7 +9,9 @@ pkg_check_modules(GTK4 REQUIRED IMPORTED_TARGET gtk4)
 add_executable(mon_app
     src/main.c
     src/hmi/hmi_ui.c
-    src/gpib/gpib_ctrl_linux.c
+    src/gpib/gpib_linux/gpib_linux_ctrl.c
+    src/gpib/gpib_linux/gpib_linux_write.c
+    src/gpib/gpib_linux/gpib_linux_read.c
     src/vision/vision_mrtd.c
 )
 

@@ -6,7 +6,7 @@ static int gpib_dev = -1;
 /*
 Public function to initialize the GPIB device
 */
-int gpib_ctrl_init(int Device_Addr)
+int gpib_init(int Device_Addr)
 {
     gpib_dev = ibdev(0, Device_Addr, 0, T3s, 1, 0); // board index, Device Primary address, secondary address, timeout, EOI mode, EOS mode
     return gpib_dev;
@@ -16,7 +16,7 @@ int gpib_ctrl_init(int Device_Addr)
 /*
 Public function to close the GPIB device
 */
-int gpib_ctrl_close()
+int gpib_close()
 {
     if (gpib_dev >= 0) {
         ibonl(gpib_dev, 0); // Take the device offline

@@ -1,5 +1,5 @@
 #include <gtk/gtk.h>
-
+#include "gpib.h" 
 
 static GtkWidget *label_temp;
 static GtkWidget *label_target;
@@ -10,22 +10,25 @@ static GtkWidget *label_target;
 static void
 on_inc_temp_clicked(GtkWidget *widget, gpointer user_data)
 {
-    // TODO: plus tard -> appeler gpib_set_temp(current + step);
-    g_print("Augmenter température\n");
+    char buf[32];
+    snprintf(buf, sizeof(buf), "Temp: %.1f °C", gpib_temp_inc());
+    gtk_label_set_text(GTK_LABEL(label_temp), buf);
 }
 
 static void
 on_dec_temp_clicked(GtkWidget *widget, gpointer user_data)
 {
-    // TODO: plus tard -> appeler gpib_set_temp(current - step);
-    g_print("Diminuer température\n");
+    char buf[32];
+    snprintf(buf, sizeof(buf), "Temp: %.1f °C", gpib_temp_dec());
+    gtk_label_set_text(GTK_LABEL(label_temp), buf);
 }
 
 static void
 on_target_temp_clicked(GtkWidget *widget, gpointer user_data)
 {
-    // TODO: plus tard -> appeler gpib_next_target(target);
-    g_print("Prochaine cible demandée...\n");
+    char buf[32];
+    snprintf(buf, sizeof(buf), "Target: %d", gpib_next_target());
+    gtk_label_set_text(GTK_LABEL(label_target), buf);
 }
 
 static void
