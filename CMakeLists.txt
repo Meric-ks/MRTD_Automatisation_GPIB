@@ -20,9 +20,9 @@ if(WIN32)
     )
 else()
     set(SOURCES_PLATFORM
-        src/gpib/gpib_linux/gpib_linux_ctrl.c
-        src/gpib/gpib_linux/gpib_linux_read.c
-        src/gpib/gpib_linux/gpib_linux_write.c
+        src/gpib/gpib_ctrl.c
+        src/gpib/gpib_read.c
+        src/gpib/gpib_write.c
     )
 endif()
 

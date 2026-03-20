@@ -4,6 +4,7 @@
     #include <gpib/ib.h>
 #endif
 
+#include <gtk/gtk.h>
 #include "gpib.h"   
 
 static GtkWidget *label_temp;

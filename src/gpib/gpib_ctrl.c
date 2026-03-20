@@ -1,4 +1,5 @@
 #include <gpib/ib.h>
+#include <stdio.h>
 
 static int gpib_dev = -1;
 
@@ -34,7 +35,12 @@ int gpib_check_status(const char *context) {
         if (iberr == ENOL)  fprintf(stderr, "(No Listener)\n");
         if (iberr == EABO)  fprintf(stderr, "(Operation aborted)\n");
         if (iberr == ENEB)  fprintf(stderr, "(No GPIB board)\n");
-        if (iberr == ETMO)  fprintf(stderr, "(Timeout)\n");
+        #if defined(ETMO)
+         if (iberr == ETMO)  fprintf(stderr, "(Timeout)\n");
+        #elif defined(ETIME)
+         if (iberr == ETIME) fprintf(stderr, "(Timeout)\n");
+        #endif
+            else                fprintf(stderr, "(Unknown error)\n");
         ibclr(gpib_dev);
         return -1;
     }
