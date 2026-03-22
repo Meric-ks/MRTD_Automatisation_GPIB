@@ -1,5 +1,3 @@
-#ifdef _WIN64
-    #include <ni488.h>
-#else
+#ifdef PLATFORM_LINUX
     #include <gpib/ib.h>
 #endif

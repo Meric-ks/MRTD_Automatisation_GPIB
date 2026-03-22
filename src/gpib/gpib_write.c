@@ -1,8 +1,4 @@
-#ifdef _WIN64
-    #include <ni488.h>
-#else
-    #include <gpib/ib.h>
-#endif
+#include <gpib/ib.h>
 
 static float current_temp   = 20.0f;
 static int   current_target = 1;

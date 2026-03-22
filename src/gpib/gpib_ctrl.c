@@ -1,8 +1,4 @@
-#ifdef _WIN64
-    #include <ni488.h>
-#else
-    #include <gpib/ib.h>
-#endif
+#include <gpib/ib.h>
 #include <stdio.h>
 
 static int gpib_dev = -1;
