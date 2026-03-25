@@ -5,9 +5,18 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
+#include "gpib.h"
 #define GPIB_BUFFER_SIZE 256
 static int gpib_dev = -1;
 static int ud = -1;
+
+ControllerState g_controller = {
+    .target_temp   = 0.0,
+    .emitter_temp  = 0.0,
+    .target_index  = 0,
+    .connected     = 0,
+    .last_error    = 0
+};
 
 /*
 Public function to initialize the GPIB device
@@ -83,37 +92,40 @@ int gpib_read(char *response)
 int gpib_write_read(const char *command, char *response)
 {
     if (gpib_write(command) < 0) return -1;
-    //usleep(100000); 
     return gpib_read(response);
 }
 /*======================================================================================================*/
 
+/* 
+Read data from black body controller (asci), parse and store this data in ControllerState structure 
+*/
 int gpib_read_all()
 {
     char response[GPIB_BUFFER_SIZE];
 
     if (gpib_write_read("RT", response) < 0) {
-        fprintf(stderr, "Failed to read from GPIB device\n");
+        fprintf(stderr, "Failed to read RT from GPIB device\n");
         return -1;
-    } else {
-        printf("Target temperature: %s\n", response);
     }
+    g_controller.target_temp = atof(response);
+    printf("Target temperature: %f\n", g_controller.target_temp);
 
     if (gpib_write_read("RE", response) < 0) {
-        fprintf(stderr, "Failed to read from GPIB device\n");
+        fprintf(stderr, "Failed to read RE from GPIB device\n");
         return -1;
-    } else {
-        printf("Emitter temperature: %s\n", response);
-    }
+    } 
+    g_controller.emitter_temp = atof(response);
+    printf("Emitter temperature: %f\n", g_controller.emitter_temp);
 
     if (gpib_write_read("RA", response) < 0) {
-        fprintf(stderr, "Failed to read from GPIB device\n");
+        fprintf(stderr, "Failed to read RA from GPIB device\n");
         return -1;
-    } else {
-        printf("Target position: %s/12\n", response);
-    }
+    } 
+    g_controller.target_index = atoi(response);
+    printf("Target position: %d/12\n", g_controller.target_index);
+    
 
     // Ajouter lecture utile ici
-
+    
     return 0;
 }

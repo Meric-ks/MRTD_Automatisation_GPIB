@@ -13,9 +13,6 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
     
-
-    gpib_close();
     return EXIT_SUCCESS;
-
 }
 

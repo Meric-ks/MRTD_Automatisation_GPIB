@@ -9,6 +9,14 @@ float gpib_temp_dec(void);
 int   gpib_next_target(void);
 int gpib_read_all(void);
 
+typedef struct {
+    double target_temp;
+    double emitter_temp;
+    int    target_index;
+    int    connected;
+    int    last_error;
+} ControllerState;
 
+extern ControllerState g_controller;
 
 #endif 
