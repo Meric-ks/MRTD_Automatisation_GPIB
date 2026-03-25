@@ -12,25 +12,17 @@ gtk/gtk.h
 pthread.h
 -
 
-/home/pi/project/application/MRTD_Automatisation_GPIB/src/gpib/gpib_ctrl.c
-stdlib.h
--
-stdio.h
--
-gpib/ib.h
--
-string.h
--
-ctype.h
--
-errno.h
--
-unistd.h
--
-unistd.h
--
+../include/ui.h
 gpib.h
-/home/pi/project/application/MRTD_Automatisation_GPIB/src/gpib/gpib.h
+../include/gpib.h
+
+/home/pi/project/application/MRTD_Automatisation_GPIB/src/hmi/hmi_ui.c
+gtk/gtk.h
+-
+ui.h
+/home/pi/project/application/MRTD_Automatisation_GPIB/src/hmi/ui.h
+gpib.h
+/home/pi/project/application/MRTD_Automatisation_GPIB/src/hmi/gpib.h
 
 /usr/include/atk-1.0/atk/atk-enum-types.h
 atk/atkversion.h

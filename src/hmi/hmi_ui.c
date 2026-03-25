@@ -1,8 +1,31 @@
 #include <gtk/gtk.h>
 #include "ui.h"
 #include "gpib.h"
+
 #define master_addr 0
 #define dev_addr 1
+
+static GtkWidget *label_status;
+static GtkWidget *label_tgt_temp;
+static GtkWidget *label_target;
+
+gboolean ui_update_labels(gpointer user_data)
+{
+    (void)user_data;
+
+    char buf[64];
+
+    snprintf(buf, sizeof(buf), "Target: %.2f °C", g_controller.target_temp);
+    gtk_label_set_text(GTK_LABEL(label_tgt_temp), buf);
+
+    snprintf(buf, sizeof(buf), "%.2f °C", g_controller.emitter_temp);
+    //gtk_label_set_text(GTK_LABEL(g_labels.emitter_temp), buf);
+
+    snprintf(buf, sizeof(buf), "Target index: %d / 12", g_controller.target_index);
+    gtk_label_set_text(GTK_LABEL(label_target), buf);
+
+    return TRUE; 
+}
 
 void on_inc_temp_clicked(GtkButton *btn, gpointer data) {
     gpib_temp_inc();
@@ -18,18 +41,16 @@ void on_next_target_clicked(GtkButton *btn, gpointer data) {
 
 void on_read_device_clicked(GtkButton *btn, gpointer data) {
     gpib_read_all();
-
 }
 
 void on_connect_device_clicked(GtkButton *btn, gpointer data) {
     gpib_init(master_addr,dev_addr);
-
 }
 
 int hmi_init(int *argc, char ***argv) {
     GtkBuilder *builder;
     GtkWidget  *window;
-    GtkWidget  *btn_inc, *btn_dec, *btn_next, *btn_read, *btn_connect, *label_status, *label_tgt_temp, *label_target;  
+    GtkWidget  *btn_inc, *btn_dec, *btn_next, *btn_read, *btn_connect; 
 
     gtk_init(argc, argv);
 
@@ -44,7 +65,6 @@ int hmi_init(int *argc, char ***argv) {
     label_tgt_temp = GTK_WIDGET(gtk_builder_get_object(builder, "LabelTgtTemp"));
     label_target   = GTK_WIDGET(gtk_builder_get_object(builder, "LabelTarget"));
 
-
     g_signal_connect(window,   "destroy", G_CALLBACK(gtk_main_quit),          NULL);
     g_signal_connect(btn_inc,  "clicked", G_CALLBACK(on_inc_temp_clicked),    NULL);
     g_signal_connect(btn_dec,  "clicked", G_CALLBACK(on_dec_temp_clicked),    NULL);
@@ -54,6 +74,7 @@ int hmi_init(int *argc, char ***argv) {
 
     gtk_widget_show_all(window);
     g_object_unref(builder);
+    g_timeout_add(500, ui_update_labels, NULL);
 
     gtk_main();
     return 0;

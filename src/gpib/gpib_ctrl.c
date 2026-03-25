@@ -146,7 +146,7 @@ void *gpib_poll_thread(void *arg)
                 fprintf(stderr, "Error reading from GPIB device in polling thread\n");
                 g_controller.connected = FALSE;
             }
-            sleep(1); // Poll every 1 second
+            sleep(1);
         }     
         sleep(1);
     }
