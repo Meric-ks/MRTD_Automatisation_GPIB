@@ -9,10 +9,8 @@
 ../include/gpib.h
 gtk/gtk.h
 -
-
-../include/ui.h
-gpib.h
-../include/gpib.h
+pthread.h
+-
 
 /home/pi/project/application/MRTD_Automatisation_GPIB/src/gpib/gpib_ctrl.c
 stdlib.h
@@ -29,18 +27,10 @@ errno.h
 -
 unistd.h
 -
+unistd.h
+-
 gpib.h
 /home/pi/project/application/MRTD_Automatisation_GPIB/src/gpib/gpib.h
-
-/home/pi/project/application/MRTD_Automatisation_GPIB/src/main.c
-stdlib.h
--
-stdio.h
--
-ui.h
-/home/pi/project/application/MRTD_Automatisation_GPIB/src/ui.h
-gpib.h
-/home/pi/project/application/MRTD_Automatisation_GPIB/src/gpib.h
 
 /usr/include/atk-1.0/atk/atk-enum-types.h
 atk/atkversion.h

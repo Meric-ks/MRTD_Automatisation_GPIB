@@ -1,7 +1,10 @@
 #ifndef GPIB_H
 #define GPIB_H
 #include <gtk/gtk.h>
+#include <pthread.h>
 
+
+void *gpib_poll_thread(void *arg);
 int gpib_init(int master_addr, int dev_addr);
 int gpib_close(void);
 float gpib_temp_inc(void);

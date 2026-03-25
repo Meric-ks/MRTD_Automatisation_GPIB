@@ -5,9 +5,11 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
+#include <unistd.h> 
 #include "gpib.h"
+
 #define GPIB_BUFFER_SIZE 256
-static int gpib_dev = -1;
+
 static int ud = -1;
 
 ControllerState g_controller = {
@@ -34,11 +36,13 @@ int gpib_init(int master_addr, int dev_addr)
 	{
 		fprintf(stderr, "ibdev error\n");
         fprintf(stderr, "Failed to initialize GPIB device\n");
+        g_controller.connected = FALSE;
         return -1;
 		// Ajouter fonction de déconnection et màj du status du device 
 	}
 
     printf("Device connected successfully !\n");
+    g_controller.connected = TRUE;
 
 	return 0;
 }
@@ -128,4 +132,24 @@ int gpib_read_all()
     // Ajouter lecture utile ici
     
     return 0;
+}
+
+void *gpib_poll_thread(void *arg)
+{
+    (void)arg;
+
+    while(1)
+    {
+        while (g_controller.connected)
+        {
+            if (gpib_read_all() < 0) {
+                fprintf(stderr, "Error reading from GPIB device in polling thread\n");
+                g_controller.connected = FALSE;
+            }
+            sleep(1); // Poll every 1 second
+        }     
+        sleep(1);
+    }
+
+    return NULL;
 }
