@@ -48,14 +48,14 @@ void ui_sensitive(UiLockState ui_state)
     gtk_widget_set_sensitive(btn_auto, ui_state);
     gtk_widget_set_sensitive(btn_tgt_table, ui_state);
     gtk_widget_set_sensitive(btn_serial_log, ui_state);
-    gtk_widget_set_sensitive(btn_increase_temp, ui_state);
+   /* gtk_widget_set_sensitive(btn_increase_temp, ui_state);
     gtk_widget_set_sensitive(btn_decrease_temp, ui_state);
     gtk_widget_set_sensitive(btn_save_mrtd_mesure, ui_state);
     gtk_widget_set_sensitive(btn_show_table, ui_state);
     gtk_widget_set_sensitive(btn_show_graph, ui_state);
     gtk_widget_set_sensitive(btn_reset_data, ui_state);
     gtk_widget_set_sensitive(btn_undo_last_mesure, ui_state);
-    gtk_widget_set_sensitive(btn_invert_d, ui_state);
+    gtk_widget_set_sensitive(btn_invert_d, ui_state);*/
 }
 
 gboolean ui_update_labels(gpointer user_data)

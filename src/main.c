@@ -10,7 +10,7 @@ int main(int argc, char **argv)
 {
     AppData app;
 
-    app.current_mode      = IDLE_MENU;
+    app.current_mode       = IDLE_MENU;
     app.shutdown_requested = FALSE;
 
     if (pthread_mutex_init(&app.mutex, NULL) != 0) {
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     pthread_join(app.thread_manual, NULL);
     pthread_cond_destroy(&app.cond);
     pthread_mutex_destroy(&app.mutex);
-    
+    //printf("Application terminée proprement\n");
     return EXIT_SUCCESS;
 }
 
