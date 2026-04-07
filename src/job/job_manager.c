@@ -9,7 +9,6 @@
 #include "core.h"
 
 /*======================================================================================================*/
-
 /*
 Apres plusieur iterations d'architectures possibles, j'ai choisis de serparer le projet en utilisant plusieur threads,
 la communication gpib se fera dans un thread et la vision dans un second thread.
@@ -21,7 +20,13 @@ sans toucher a la logique du thread de polling ni a l'interface graphique.
 /*======================================================================================================*/
 
 
-
+ControllerState g_controller = {
+    .target_temp   = 0.0,
+    .emitter_temp  = 0.0,
+    .target_index  = 0,
+    .state         = MASTER_OFFLINE_DEVICE_OFFLINE,
+    .ud            = -1
+};
 
 /*======================================================================================================*/
 /*
@@ -43,17 +48,40 @@ void *thread_gpib_polling(void *arg)
             continue;  // ← repart au début du while(1)
         }
 
-        while ((g_appdata.gpib_polling == FALSE)||(g_controller.state != MASTER_ONLINE_DEVICE_ONLINE) && !g_appdata.shutdown_requested) 
-            pthread_cond_wait(&g_appdata.cond, &g_appdata.mutex); // <-- Le thread attend ici tant que la tache n'est pas appelée
-
-        if (g_appdata.shutdown_requested) {
-            g_appdata.gpib_polling = FALSE;
-            pthread_mutex_unlock(&g_appdata.mutex);
-            break;  // sortie propre
+        while ( (g_controller.state != MASTER_ONLINE_DEVICE_ONLINE) && (!g_appdata.shutdown_requested ) )
+        {
+            pthread_cond_wait(&g_appdata.cond, &g_appdata.mutex);
+            if (g_appdata.gpib_service == TRUE) {
+                break; // Sors de la boucle d'attente si le service GPIB est activé
+            }
         }
 
-        //gpib_read_all();
+        pthread_mutex_unlock(&g_appdata.mutex);
+        
+        printf("GPIB polling thread: device is online, reading data...\n");
+        gpib_read_all();
+        
+        ret = pthread_mutex_lock(&g_appdata.mutex);
+        if (ret != 0) {
+            fprintf(stderr, "[GPIB] Failed to lock mutex: %s\n", strerror(ret));
+            usleep(100000);
+            continue;  // ← repart au début du while(1)
+        }
 
+        g_controller.state = local_controller.state;    //Mets à jour l'état global du controller & du device
+
+        if (g_controller.state != MASTER_ONLINE_DEVICE_ONLINE) {   
+            pthread_mutex_unlock(&g_appdata.mutex);
+            usleep(100000);
+            continue;  // ← repart au début du while(1)
+        }
+
+        // Transition de données local -> global
+        g_controller.target_temp = local_controller.target_temp;
+        g_controller.emitter_temp = local_controller.emitter_temp;
+        g_controller.target_index = local_controller.target_index;
+        g_controller.state = local_controller.state;
+  
         pthread_mutex_unlock(&g_appdata.mutex);
 
         usleep(100000); /* 100ms — réactif sans surcharger le bus GPIB */

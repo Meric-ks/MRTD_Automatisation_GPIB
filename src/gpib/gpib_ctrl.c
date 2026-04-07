@@ -8,27 +8,9 @@
 
 /* ------------------------------------------------------------------ */
 /* 
-TODO: Il faut que le programme utilise la strucutre local pour stocker les donnees lues du corps noir, idealement le thread devrait utiliser le mutex
-      a un seul endroit pour realiser la transition de donnee local -> global. 
+TODO: Il faut que le programme utilise la strucutre local pour stocker les donnees lues du corps noir, 
+      idealement le thread devrait utiliser le mutex a un seul endroit pour realiser la transition de donnee local -> global. 
 */
-
-ControllerState g_controller = {
-    .target_temp   = 0.0,
-    .emitter_temp  = 0.0,
-    .target_index  = 0,
-    .state         = MASTER_OFFLINE_DEVICE_OFFLINE,
-    .last_error    = 0,
-    .ud            = -1
-};
-
-typedef struct
-{
-    double target_temp;     //Une structure de transition est necessaire pour transmettre les donnees a la structure generale ControllerState,
-    double emitter_temp;    //sans cela a chaque fois que le thread de polling lit les donnes gpib il aura la main constante sur le mutex global
-    int    target_index;    //Ce qui n'est pas acceptable pour la reactivite de l'UI et un danger potentiel pour la stabilité de l'application (risque de deadlock)
-    DeviceState state;
-    int    ud;
-} GpibLocalData;
 
 GpibLocalData local_controller = {
     .target_temp   = 0.0,
@@ -44,7 +26,7 @@ on fournis en argument l'addresse du master et du device (j'ai choisis de fixer 
 La fonction tente d'ouvrir le device, la fonction ibdev ne verifie que si un descripteur usb-gpib est present compatible a la bibliotheque,
 j'ai donc du ajouter une verification supplementaire en envoyant une commande de lecture de la version du SR80.
 */
-int gpib_init(int master_addr, int dev_addr)
+DeviceState gpib_init(int master_addr, int dev_addr)
 {
     const int sad      = 0;
     const int send_eoi = 1;
@@ -54,36 +36,39 @@ int gpib_init(int master_addr, int dev_addr)
 
     printf("Trying to open pad=%i on /dev/gpib%i...\n", dev_addr, master_addr);
 
-    g_controller.ud = ibdev(master_addr, dev_addr, sad, timeout, send_eoi, eos_mode);
-    if (g_controller.ud < 0)
+    local_controller.ud = ibdev(master_addr, dev_addr, sad, timeout, send_eoi, eos_mode);
+    if (local_controller.ud < 0)
     {
         fprintf(stderr, "ibdev failed\n");
-        g_controller.state = MASTER_OFFLINE_DEVICE_OFFLINE;
-        return -1;
+        local_controller.state = MASTER_OFFLINE_DEVICE_OFFLINE;
+        local_controller.ud = -1;
+        return MASTER_OFFLINE_DEVICE_OFFLINE;
     }
 
-    g_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
+    local_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
 
     if (gpib_write_read("RV", response) < 0)
     {
         fprintf(stderr, "Device not responding (RV command failed)\n");
-        ibonl(g_controller.ud, 0);
-        g_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
-        return -1;
+        ibonl(local_controller.ud, 0);
+        local_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
+        local_controller.ud = -1;
+        return MASTER_ONLINE_DEVICE_OFFLINE;
     }
 
     /* Vérification que la réponse contient "SR80" */
     if (strstr(response, "SR80") == NULL)
     {
         fprintf(stderr, "Unexpected device response: %s\n expected response was SR80", response);
-        ibonl(g_controller.ud, 0);
-        g_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
-        return -1;
+        ibonl(local_controller.ud, 0);
+        local_controller.state = MASTER_ONLINE_DEVICE_OFFLINE;
+        local_controller.ud = -1;
+        return MASTER_ONLINE_DEVICE_OFFLINE;
     }
 
-    printf("Corps noir SR80 confirmé — réponse: %s\n", response);
-    g_controller.state = MASTER_ONLINE_DEVICE_ONLINE;
-    return 0;
+    printf("Corps noir SR80 confirmé\nréponse: %s\n", response);
+    local_controller.state = MASTER_ONLINE_DEVICE_ONLINE;
+    return MASTER_ONLINE_DEVICE_ONLINE;
 }
 /*======================================================================================================*/
 /*
@@ -96,7 +81,7 @@ int gpib_write(const char *command)
 {
 
 	printf("sending string: %s\n", command);
-    ibwrt(g_controller.ud, command, strlen(command));
+    ibwrt(local_controller.ud, command, strlen(command));
 	if((ThreadIbsta() & ERR))
 	{
         fprintf(stderr, "ibwrt error\n");
@@ -111,7 +96,7 @@ Fonction de bas niveau qui permet de lire la reponse brute du corps noir, elle n
 int gpib_read(char *response)
 {
     memset(response, 0, GPIB_BUFFER_SIZE);
-    ibrd(g_controller.ud, response, GPIB_BUFFER_SIZE - 1);
+    ibrd(local_controller.ud, response, GPIB_BUFFER_SIZE - 1);
     if (ThreadIbsta() & ERR)
     {
         fprintf(stderr, "ibrd error\n");
@@ -143,22 +128,22 @@ int gpib_read_all()
         fprintf(stderr, "Failed to read RT from GPIB device\n");
         return -1;
     }
-    g_controller.target_temp = atof(response);
-    printf("Target temperature: %f\n", g_controller.target_temp);
+    local_controller.target_temp = atof(response);
+    printf("Target temperature: %f\n", local_controller.target_temp);
 
     if (gpib_write_read("RE", response) < 0) {
         fprintf(stderr, "Failed to read RE from GPIB device\n");
         return -1;
     } 
-    g_controller.emitter_temp = atof(response);
-    printf("Emitter temperature: %f\n", g_controller.emitter_temp);
+    local_controller.emitter_temp = atof(response);
+    printf("Emitter temperature: %f\n", local_controller.emitter_temp);
 
     if (gpib_write_read("RA", response) < 0) {
         fprintf(stderr, "Failed to read RA from GPIB device\n");
         return -1;
     } 
-    g_controller.target_index = atoi(response);
-    printf("Target position: %d/12\n", g_controller.target_index);
+    local_controller.target_index = atoi(response);
+    printf("Target position: %d/12\n", local_controller.target_index);
     
 
     // Ajouter lecture utile ici
@@ -168,14 +153,15 @@ int gpib_read_all()
 /*======================================================================================================*/
 /*
 N'est pas ops pour l'instant, doit etre appelee lors de la fermeture du programme.
+elle modifie les variables locales... est ce correcte ?
 */
 void cleanup_and_quit(void)
 {
     // Libère le device GPIB si connecté
-    if (g_controller.state == MASTER_ONLINE_DEVICE_ONLINE)
+    if (local_controller.state == MASTER_ONLINE_DEVICE_ONLINE)
     {
-        ibonl(g_controller.ud, 0);
-        g_controller.state = MASTER_OFFLINE_DEVICE_OFFLINE;
+        ibonl(local_controller.ud, 0);
+        local_controller.state = MASTER_OFFLINE_DEVICE_OFFLINE;
     }
 
 }

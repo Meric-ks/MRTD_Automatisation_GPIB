@@ -13,7 +13,7 @@ typedef enum
 typedef struct
 {
     ProgramMode current_mode;
-    int gpib_polling;
+    int gpib_service;
     int shutdown_requested;
 
     pthread_t thread_auto;

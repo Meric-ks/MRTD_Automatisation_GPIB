@@ -72,7 +72,7 @@ gboolean ui_update_labels(gpointer user_data)
 {
     (void)user_data;
 
-    switch(g_controller.state)
+    /*switch(g_controller.state)
     {
         case MASTER_ONLINE_DEVICE_ONLINE:
             gtk_label_set_text(GTK_LABEL(label_dev_status), "ONLINE");
@@ -84,6 +84,7 @@ gboolean ui_update_labels(gpointer user_data)
             ui_sensitive(UI_UNLOCK); // pour dev, on laisse les boutons actifs même si pas de device
             break;
     }
+    */
 
     return TRUE; 
 }
@@ -136,9 +137,9 @@ void on_btn_manual_clicked(GtkButton *button, gpointer user_data)
         hmi_log_append("Action ignored: not in IDLE state");
         return;
     }
-    g_appdata.gpib_polling  = TRUE;
+    
     g_appdata.current_mode = MANUAL_MODE;
-    pthread_cond_broadcast(&g_appdata.cond);
+    pthread_cond_signal(&g_appdata.cond);
     pthread_mutex_unlock(&g_appdata.mutex);
 
     gtk_stack_set_visible_child_name(GTK_STACK(stack1), "page1");
@@ -167,20 +168,34 @@ void on_btn_connect_dev_clicked(GtkButton *button, gpointer user_data)
     (void)button;
     (void)user_data;
 
-    gpib_init(0, 1);
+    hmi_log_append("Connexion au GPIB en cours...");
 
-    if(g_controller.state == MASTER_ONLINE_DEVICE_ONLINE)
-    {
-        hmi_log_append("GPIB connecté — board 0, adresse 1");
+    DeviceState ret = gpib_init(master_addr, dev_addr);
+
+    int ret_mutex = pthread_mutex_lock(&g_appdata.mutex);
+    if (ret_mutex != 0) {
+        fprintf(stderr, "[GPIB] Failed to lock mutex: %s\n", strerror(ret_mutex));
+        hmi_log_append("Action ignored: mutex can't be grabbed");
+        return;
     }
-    else if(g_controller.state == MASTER_ONLINE_DEVICE_OFFLINE)
+
+    g_controller.state = ret;
+
+    if (ret == MASTER_ONLINE_DEVICE_ONLINE)
     {
-        hmi_log_append("ERREUR : GPIB-USB online, device not responding");
+        //pthread_cond_broadcast(&g_appdata.cond); //sers à lancer le polling dès la connexion
+        hmi_log_append("GPIB connecté\nboard 0, adresse 1");
+    }
+    else if (ret == MASTER_ONLINE_DEVICE_OFFLINE)
+    {
+        hmi_log_append("ERREUR : GPIB-USB online,\ndevice not responding");
     }
     else
     {
-        hmi_log_append("Erreur : GPIB_USB not found");
+        hmi_log_append("Erreur : GPIB-USB not found");
     }
+
+    pthread_mutex_unlock(&g_appdata.mutex);
 }
 
 void on_btn_serial_log_toggled(GtkToggleButton *button, gpointer user_data)
@@ -249,7 +264,8 @@ void on_btn_back_menu_clicked(GtkButton *button, gpointer user_data)
     }
 
     g_appdata.current_mode = IDLE_MENU;
-    pthread_cond_broadcast(&g_appdata.cond);
+ 
+    pthread_cond_signal(&g_appdata.cond);
     pthread_mutex_unlock(&g_appdata.mutex);
 
 
