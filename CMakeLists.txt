@@ -10,10 +10,10 @@ add_definitions(-DGLADE_PATH="${CMAKE_SOURCE_DIR}/src/hmi/gui.glade")
 # Sources toujours compilées
 set(SOURCES_COMMON
     src/main.c
-    src/gpib/gpib_ctrl.c
-    src/hmi/hmi_ui.c
-    src/job/job_manager.c
-    src/vision/vision_mrtd.c
+    src/gpib_ctrl.c
+    src/hmi_ui.c
+    src/job_manager.c
+    src/vision_mrtd.c
 )
 
 # UN SEUL add_executable
