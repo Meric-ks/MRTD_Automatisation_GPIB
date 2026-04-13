@@ -1,0 +1,10 @@
+1 # Incrémentation de la température via les 2 boutons dans le mode manuel, gérer l'Incrémentation continue
+    tant que le bouton est pressée.
+
+2 # Ajout de preset MRTD pour la procédure de test via une clé usb. 
+    - préparé un bouton pour pousser un fichier qui contiendrais un exemple du layout a suivre pour ajouter un nouveau preset. 
+    - Un second bouton pour pull le fichier préparé par l'utilisateur pour ajouter le nouveau profil en mémoire.
+
+3 # implémenter toute la logique de la procédure et prévoir le cas ou aucun profile n'est choisis.
+
+4 # trouver un moyen d'utiliser le serial pol du bus IEE-4888 pour récupérer le setpoint READY du sr-80

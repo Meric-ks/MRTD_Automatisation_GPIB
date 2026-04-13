@@ -1,42 +1,77 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <gpib/ib.h>
 #include "core.h"
 #include "gpib.h"
 
+/* --- Définition du contexte global --- */
+// On initialise ici la mémoire, mais on passera son adresse aux threads[cite: 15].
 AppData g_appdata = {
-    .current_mode       = IDLE_MENU,
-    .gpib_service       = FALSE,
-    .shutdown_requested = 0,                            //Struture globale qui contient les donnees partagees entre tous les threads, cela implique
-    .mutex              = PTHREAD_MUTEX_INITIALIZER,    //qu'un mutex doit etre utilise pour proteger les donnees.
-    .cond               = PTHREAD_COND_INITIALIZER,     //une condition est presente pour que les threads puissent attendre sans consommer du CPU inutilement (Wait Overhead)
-};                                                      
+    .service_gpib       = IDLE,
+    .shutdown_requested = FALSE,
+    .device_online      = FALSE,
+    .mutex              = PTHREAD_MUTEX_INITIALIZER,
+    .cond               = PTHREAD_COND_INITIALIZER,
+    .device_status      = {
+        .ud = -1,
+        .actual_dt = 0.0,
+        .target_temp = 0.0,
+        .emitter_temp = 0.0,
+        .target_index = 0
+    }
+};
 
 int main(int argc, char **argv)
 {
-    int ret = 0;
-    g_appdata.current_mode       = IDLE_MENU;
-    g_appdata.shutdown_requested = FALSE;
+    pthread_t th_handler, th_service;
 
-    ret = pthread_create(&g_appdata.thread_manual,NULL,thread_gpib_polling,NULL);
+    printf("Démarrage de l'application GPIB...\n");
 
-    if(!ret){
-        printf("Thread for manual mode has ben initied successfully.\n");
-    } else {
-        fprintf(stderr,"Tread for manual mode failed to initialize,\nrefere to <pthread.c> - pthread_create() return: %s",strerror(ret));
+    /* 1. Lancement du Thread 1 : Handler (Watchdog) */
+    // On passe l'adresse de g_appdata pour que le thread soit autonome
+    if (pthread_create(&th_handler, NULL, thread_handler_watchdog, &g_appdata) != 0) {
+        fprintf(stderr, "Erreur: Impossible de créer le thread Handler\n");
         return EXIT_FAILURE;
     }
 
-    if (hmi_init(&argc, &argv) < 0) {
-        fprintf(stderr, "Failed to run UI\n");
-        //attention quitte sans attendre les threads, pas de cleanup possible
+    /* 2. Lancement du Thread 2 : Service GPIB */
+    // Ce thread gérera la machine à états et le polling
+    if (pthread_create(&th_service, NULL, thread_service_gpib, &g_appdata) != 0) {
+        fprintf(stderr, "Erreur: Impossible de créer le thread Service\n");
+        // Tentative de fermeture propre si le premier thread est lancé
+        g_appdata.shutdown_requested = true;
+        pthread_join(th_handler, NULL);
         return EXIT_FAILURE;
     }
 
+    /* 3. Lancement de l'Interface Graphique (BLOQUANT) */
+    // GTK prend la main sur le thread principal. 
+    // Le callback du bouton shutdown de l'HMI devra passer g_appdata.shutdown_requested à true
+    if (hmi_init(&argc, &argv, &g_appdata) < 0) {
+        fprintf(stderr, "Erreur fatale: Échec de l'interface graphique\n");
+    }
 
-    pthread_join(g_appdata.thread_manual,NULL);
-    //printf("Application terminée proprement\n");
+    /* 4. Phase de fermeture (Cleanup) */
+    // Une fois que hmi_init (gtk_main) se termine :
+    printf("Arrêt des services en cours...\n");
+    
+    // On s'assure que le flag est levé pour les threads 
+    pthread_mutex_lock(&g_appdata.mutex);
+    g_appdata.shutdown_requested = true;
+    pthread_cond_broadcast(&g_appdata.cond);
+    pthread_mutex_unlock(&g_appdata.mutex);
+
+    // Attente de la fin des threads pour un retour propre au système 
+    pthread_join(th_handler, NULL);
+    pthread_join(th_service, NULL);
+
+    // Libération finale des ressources matérielles
+    if (g_appdata.device_status.ud != -1) {
+        ibonl(g_appdata.device_status.ud, 0);
+    }
+
+    printf("Application terminée proprement.\n");
     return EXIT_SUCCESS;
-
 }
-

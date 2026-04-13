@@ -66,6 +66,11 @@ modifier les lignes:
   board_type = "ni_pci" --> board_type = "ni_usb_b"
   pad = 0 --> pad = 1
 
+Executer la commande
+  sudo gpib_config
+
+il faut par défaut éxécuter cette commande à chaque lancement. (fix: ajouter dans init service)
+
 ## Installation serveur graphique X11 & gtk3
 
 sudo apt update

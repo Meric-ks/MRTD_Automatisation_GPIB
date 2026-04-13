@@ -1,0 +1,163 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <gpib/ib.h>
+#include "core.h"
+#include "gpib.h"
+
+/*====================================================================================================*/
+/* Ces fonctions on pour but d'aerer le code, permettent de simplifier la lecture et la logique de la machine d'etat du thread de service */
+
+// Change l'état de connexion et le mode de service en une fois (securise)
+void app_set_connection_status(AppData *app, bool online, ServiceGpib state) {
+    pthread_mutex_lock(&app->mutex);
+    app->device_online = online;
+    app->service_gpib = state;
+    pthread_mutex_unlock(&app->mutex);
+}
+
+// Envoie un nouvel ordre depuis GTK ou le Watchdog (securise)
+void app_set_service_gpib(AppData *app, ServiceGpib service) {
+    pthread_mutex_lock(&app->mutex);
+    app->service_gpib = service;
+    pthread_cond_signal(&app->cond); // On réveille le service ici !
+    pthread_mutex_unlock(&app->mutex);
+}
+
+// Réalise la tansmission du snapshot -> global (securise)
+void global_data_transfer(AppData *app, GpibData *local)
+{
+    pthread_mutex_lock(&app->mutex);
+    app->device_status = *local;   // Copie par valeur — sûr car que des scalaires
+    pthread_mutex_unlock(&app->mutex);
+}
+
+// Récupère l'état pour le Watchdog ou l'UI (securise)
+bool app_is_device_online(AppData *app) {
+    bool status;
+    pthread_mutex_lock(&app->mutex);
+    status = app->device_online;
+    pthread_mutex_unlock(&app->mutex);
+    return status;
+}
+
+// Récupère l'état pour le Watchdog ou l'UI (securise)
+bool app_check_shutdown_requested(AppData *app) {
+    bool status;
+    pthread_mutex_lock(&app->mutex);
+    status = app->shutdown_requested;
+    pthread_mutex_unlock(&app->mutex);
+    return status;
+}
+
+
+
+/*====================================================================================================*/
+
+/*
+    *Thread qui gere toutes interactions avec l'hardware via GPIB. Travaille de pair avec le thread de watchdog pour la gestion des erreurs et la logique de l'application. 
+     - En IDLE, il attend une commande du watchdog pour se connecter ou faire du polling.
+     - En CONNECT, il tente de se connecter au SR80 et repasse en IDLE.
+     - En COMMUNICATION, il réalise le polling tant que l'appareil est en ligne, sinon repasse en IDLE.
+     - En SHUTDOWN, il ferme proprement la connexion GPIB et termine le thread.
+*/
+void* thread_service_gpib(void* arg) {
+    ServiceGpib service_gpib;
+    AppData *app = (AppData*)arg;
+    GpibData local_snapshot; // Stockage local pour le polling "hors-mutex"
+
+    printf("Thread Service GPIB démarré.\n");
+
+    while (1) {
+
+        pthread_mutex_lock(&app->mutex);
+
+        while((app->service_gpib == IDLE) && (!app->shutdown_requested))
+        {
+            pthread_cond_wait(&app->cond,&app->mutex); 
+        }
+
+        service_gpib = app->service_gpib;   //libere le mutex avant le switch
+
+        pthread_mutex_unlock(&app->mutex);
+        /*
+            * Machine à états du service GPIB: Travaille en parallele avec le thread de watchdog. Le watchdog est la pour simplifier la logique du programme.
+            * la tentative de connection se lance et repasse en IDLE, le polling continue tant que l'appareil est en ligne.
+            * Si une erreur survient, le service repasse systematiquement en IDLE et attend que le watchdog gere la situation.
+        */
+        switch(service_gpib){
+
+            case CONNECT:
+
+                if((local_snapshot.ud = gpib_init(0,1)) < 0){
+                    g_idle_add(hmi_log_append_idle, strdup("ERROR: Connection au SR80 échouée."));                          
+                    app_set_connection_status(app, false, IDLE);                                                                                
+                } else {                                                                                               
+                    g_idle_add(hmi_log_append_idle, strdup("INFO: Connection au SR80 réussie."));
+                    app_set_connection_status(app, true, IDLE); 
+                }                            
+                break;
+                                                                                                  
+            case COMMUNICATION:
+                    //TODO: fonction de lecture du buffer glib pour voir si une commande n'est pas présente
+                if(app_is_device_online(app) == false){                                                                 
+                    g_idle_add(hmi_log_append_idle, strdup("ERROR: Appareil hors ligne.\nImpossible de lancer le polling.\nRetour en IDLE.")); 
+                    app_set_connection_status(app, false, IDLE);
+                    break;
+                } else if (gpib_read_all(local_snapshot.ud, &local_snapshot) < 0) {                                              
+                    g_idle_add(hmi_log_append_idle, strdup("ERROR: Lecture GPIB échouée.\nRetour en IDLE."));           
+                    app_set_connection_status(app, false, IDLE); 
+                } else {
+                    //app_set_connection_status(app, true, COMMUNICATION); //Décommenter si polling constant même dans le menu désiré. 
+                    //g_idle_add(hmi_log_append_idle, strdup("INFO: Lecture GPIB OK.")); //POUR test
+                    global_data_transfer(app, &local_snapshot);
+                    usleep(100000);
+                }                                                                                  
+                break;     
+
+            case SHUTDOWN:
+
+                ibonl(local_snapshot.ud,0);                                     
+                return NULL;
+
+            default:
+
+            fprintf(stderr, "[ERROR-SERVICE_GPIB ] État inconnu: %d", service_gpib);
+            abort();           //ne doit techniquement jamais arriver ici.
+
+        }
+    }
+    return NULL;
+}
+
+void* thread_handler_watchdog(void* arg) {
+    AppData *app = (AppData*)arg;
+    bool last_known_status = false;  // Evite le spam — n'envoie que sur changement
+
+    while (!app_check_shutdown_requested(app)) {
+        bool online = app_is_device_online(app);
+
+        if (online) {
+            if (ibsta & (ERR | TIMO)) {
+                // Erreur matérielle détectée
+                app_set_connection_status(app, false, IDLE);
+                g_idle_add(hmi_log_append_idle, strdup("ALERTE: Erreur matérielle détectée.\n"));
+                online = false;  // Force le changement d'état
+            }
+        }
+
+        // N'envoie à GTK que si l'état a changé
+        if (online != last_known_status) {
+            if (online) {
+                g_idle_add(set_status_online, NULL);
+            } else {
+                g_idle_add(set_status_offline, NULL);
+            }
+            last_known_status = online;
+        }
+
+        usleep(1000000);
+    }
+
+    app_set_connection_status(app, false, SHUTDOWN);
+    return NULL;
+}

@@ -12,7 +12,7 @@ set(SOURCES_COMMON
     src/main.c
     src/gpib_ctrl.c
     src/hmi/hmi_ui.c
-    src/job_manager.c
+    src/services.c
     src/vision_mrtd.c
 )
 

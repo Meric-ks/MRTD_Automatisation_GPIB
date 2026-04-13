@@ -1,0 +1,2 @@
+dmesg -t
+dmesg | tail -n 10
